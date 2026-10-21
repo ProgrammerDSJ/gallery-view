@@ -1,0 +1,23 @@
+{
+  "name": "gallery-view",
+  "version": "1.0.0",
+  "description": "Keep your vault clean. Automatically route pasted images to a hidden .gallery folder and manage them in a dedicated gallery view.",
+  "main": "main.js",
+  "scripts": {
+    "version": "node -e \"console.log(require('./manifest.json').version)\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ProgrammerDSJ/gallery-view"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "gallery",
+    "attachments",
+    "media",
+    "images"
+  ],
+  "author": "Devansh Jhawar (https://github.com/ProgrammerDSJ)",
+  "license": "MIT"
+}
