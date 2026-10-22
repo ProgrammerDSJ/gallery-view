@@ -1,7 +1,7 @@
 {
   "id": "galleryview",
   "name": "GalleryView",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "0.15.0",
   "description": "Keep your vault clean. Automatically route pasted images to a hidden .gallery folder and manage them in a dedicated gallery view.",
   "author": "Devansh Jhawar",

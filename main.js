@@ -229,8 +229,8 @@ class GalleryViewPlugin extends Plugin {
 
   async refreshVirtualIndex() {
     this.virtualFiles.clear();
-    const files = this.app.vault.getFiles();
-    const proto = files.length > 0 ? Object.getPrototypeOf(files[0]) : Object.prototype;
+    // Preserve TFile identity even when the vault contains no indexed files.
+    const proto = TFile.prototype;
 
     const scan = async (dir) => {
       try {
@@ -399,57 +399,51 @@ class GalleryViewPlugin extends Plugin {
       })
     );
 
-    // 3. Global DOM Paste & Drop for Canvas View
-    this.registerDomEvent(document, "paste", async (evt) => {
-      const activeLeaf = this.app.workspace.activeLeaf;
-      if (!activeLeaf || !activeLeaf.view || activeLeaf.view.getViewType() !== "canvas") return;
+    // Capture before Canvas handles the event and creates a native attachment.
+    const handleCanvasImages = async (evt) => {
+      const view = this.app.workspace.activeLeaf?.view;
+      if (!view || view.getViewType() !== "canvas" || !view.canvas) return;
+      if (view.canvas.readonly || evt.defaultPrevented) return;
 
-      const clipboard = evt.clipboardData;
-      if (!clipboard) return;
+      // Leave pasting inside a Canvas text card to the editor interceptor.
+      const target = evt.target;
+      if (target?.closest?.("textarea, input, [contenteditable='true'], .cm-editor")) return;
 
-      const imageFiles = [];
-      if (clipboard.files && clipboard.files.length > 0) {
-        for (let i = 0; i < clipboard.files.length; i++) {
-          if (clipboard.files[i].type.startsWith("image/")) {
-            imageFiles.push(clipboard.files[i]);
+      // Share image extraction between clipboard paste and file drop events.
+      const transfer = evt.clipboardData || evt.dataTransfer;
+      if (!transfer) return;
+      const imageFiles = Array.from(transfer.files || []).filter(
+        (file) => file.type.startsWith("image/") || isImage(file.name)
+      );
+      // Some clipboard sources expose images through items rather than files.
+      if (!imageFiles.length) {
+        for (const item of Array.from(transfer.items || [])) {
+          if (item.kind === "file" && item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
           }
         }
       }
+      if (!imageFiles.length) return;
 
-      if (imageFiles.length === 0) return;
-
+      // Cancel native handling before the first await; event dispatch does not
+      // wait for async listeners, and Canvas could otherwise import a duplicate.
       evt.preventDefault();
-      evt.stopPropagation();
-
+      evt.stopImmediatePropagation();
       for (const file of imageFiles) {
-        await this.saveImageAndAddToCanvas(file, activeLeaf.view);
-      }
-    });
-
-    this.registerDomEvent(document, "drop", async (evt) => {
-      const activeLeaf = this.app.workspace.activeLeaf;
-      if (!activeLeaf || !activeLeaf.view || activeLeaf.view.getViewType() !== "canvas") return;
-
-      const dt = evt.dataTransfer;
-      if (!dt || !dt.files || dt.files.length === 0) return;
-
-      const imageFiles = [];
-      for (let i = 0; i < dt.files.length; i++) {
-        const f = dt.files[i];
-        if (f.type.startsWith("image/") || isImage(f.name)) {
-          imageFiles.push(f);
+        try {
+          await this.saveImageAndAddToCanvas(file, view);
+        } catch (error) {
+          // Report this failure without skipping the remaining images.
+          console.error("GalleryView Canvas import failed:", error);
+          new Notice("Could not add image to Canvas: " + error.message);
         }
       }
+    };
 
-      if (imageFiles.length === 0) return;
-
-      evt.preventDefault();
-      evt.stopPropagation();
-
-      for (const file of imageFiles) {
-        await this.saveImageAndAddToCanvas(file, activeLeaf.view);
-      }
-    });
+    // Intercept on the capture path before the event reaches Canvas elements.
+    this.registerDomEvent(document, "paste", handleCanvasImages, { capture: true });
+    this.registerDomEvent(document, "drop", handleCanvasImages, { capture: true });
   }
 
   async generateUniqueFilename(baseDir, originalName, ext) {
@@ -503,7 +497,8 @@ class GalleryViewPlugin extends Plugin {
   }
 
   async saveImageAndAddToCanvas(file, canvasView) {
-    const ext = file.name ? file.name.split(".").pop() : "png";
+    // Clipboard images may lack a filename extension; fall back to their MIME type.
+    const ext = file.name?.includes(".") ? file.name.split(".").pop() : (file.type?.split("/").pop() || "png");
     const targetFolder = this.settings.defaultFolder || this.settings.galleryRoot;
     await this.ensureDirectory(targetFolder);
 
@@ -513,6 +508,7 @@ class GalleryViewPlugin extends Plugin {
     const buffer = await file.arrayBuffer();
     await this.app.vault.adapter.writeBinary(targetPath, buffer);
 
+    // Index the saved image before resolving the TFile used by the Canvas node.
     await this.refreshVirtualIndex();
 
     if (this.settings.showNotifications) {
@@ -532,8 +528,12 @@ class GalleryViewPlugin extends Plugin {
     const height = 280;
 
     if (typeof canvas.createFileNode === "function") {
+      // Canvas reads file.path and file.extension; a path string creates an empty node.
+      const file = this.virtualFiles.get(normalizePath(filePath))
+        || this.app.vault.getAbstractFileByPath(normalizePath(filePath));
+      if (!file) throw new Error(`Image not found: ${filePath}`);
       canvas.createFileNode({
-        file: filePath,
+        file,
         pos: { x: center.x - width / 2, y: center.y - height / 2 },
         size: { width, height }
       });
