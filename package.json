@@ -1,6 +1,6 @@
 {
   "name": "gallery-view",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Keep your vault clean. Automatically route pasted images to a hidden .gallery folder and manage them in a dedicated gallery view.",
   "main": "main.js",
   "scripts": {

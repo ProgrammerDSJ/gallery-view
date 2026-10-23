@@ -1,7 +1,7 @@
 # GalleryView
 
 [![Obsidian Minimum Version](https://img.shields.io/badge/Obsidian-v0.15.0%2B-purple.svg?style=flat-square)](https://obsidian.md)
-[![Latest Release](https://img.shields.io/badge/Release-v1.0.0-blue.svg?style=flat-square)](https://github.com/ProgrammerDSJ/gallery-view/releases)
+[![Latest Release](https://img.shields.io/badge/Release-v1.0.1-blue.svg?style=flat-square)](https://github.com/ProgrammerDSJ/gallery-view/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/ProgrammerDSJ/gallery-view/pulls)
 
